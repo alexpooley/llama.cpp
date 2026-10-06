@@ -1423,6 +1423,10 @@ llm_graph_result * llama_context::process_ubatch(const llama_ubatch & ubatch, ll
 
         n_reused++;
     } else {
+        // the previous graph can still run. sched_reset frees its tensors and the allocator
+        // gives the same memory to the next graph, so wait for the device before that.
+        ggml_backend_sched_synchronize(sched.get());
+
         gf_res_prev_active = nullptr;
         res->reset();
 
