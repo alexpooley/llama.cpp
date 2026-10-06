@@ -1512,7 +1512,13 @@ void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct ggml_cgra
                 const int src_backend_id = sched->hv_tensor_backend_ids[src_id];
                 GGML_ASSERT(src_backend_id != -1); // all inputs should be assigned by now
 
-                if (src_backend_id != cur_backend_id && !ggml_backend_sched_buffer_supported(sched, src, cur_backend_id)) {
+                // an input the caller may rewrite cannot be shared with an in-flight
+                // graph: kernels dereference it at execution time, not at submit time
+                const bool user_input = (src->flags & GGML_TENSOR_FLAG_INPUT) != 0;
+
+                if (user_input ||
+                        (src_backend_id != cur_backend_id &&
+                         !ggml_backend_sched_buffer_supported(sched, src, cur_backend_id))) {
                     // create a copy of the input in the split's backend
                     if (tensor_id_copy(src_id, cur_backend_id, 0) == NULL) {
                         ggml_backend_t backend = sched->backends[cur_backend_id];
